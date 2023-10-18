@@ -1,73 +1,91 @@
-import math
 import random
 import smtplib
 from twilio.rest import Client
+from dotenv import load_dotenv
+import os
+import re
 
-account_sid = "AC72f0a54b0fa300722c44c88847dc4ce3"
-auth_token = "7441917e6d04f7d9da7b6514fa5a41cc"
+# Regular expression pattern for email validation
+email_pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
 
-inputNO = '+15418358453'
-sendNo = '+919869366902'
+# Load environment variables from .env file
+load_dotenv('.env')
 
-def Validate_MobileNo(MobileNo):
-    if len(MobileNo) != 10:
-        print("Please enter valid Mobile number!!")
-        MobileNo = input("Enter the Mobile number:")
-        Validate_MobileNo(MobileNo)
-    return MobileNo
+# Generate a 6-digit OTP
+def generateotp():
+    return str(random.randint(100000, 999999))
+
+# Send OTP over email using SMTP
+def sendotpovermail(email, otp):
+    smtp_server = 'smtp.gmail.com'
+    smtp_port = 587
+    smtp_username = 'jyjawale2003@gmail.com'
+    smtp_password = os.getenv('SMTP_PASSWORD')  # Retrieve SMTP password from environment
+
+    subject = 'Your OTP'
+    message = f'Your OTP is: {otp}'
+
+    try:
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+
+        msg = f'Subject: {subject}\n\n{message}'
+        server.sendmail(smtp_username, email, msg)
+        server.quit()
+        print('OTP sent successfully via email!')
+    except Exception as e:
+        print(f'Error sending OTP via email: {str(e)}')
+
+# Send OTP over mobile using Twilio
+def sendotpovermobile(phone_number, otp):
+    twilio_account_sid = os.getenv('TWILIO_ACCOUNT_SID')  # Retrieve Account SID from environment
+    twilio_auth_token = os.getenv('TWILIO_AUTH_TOKEN')    # Retrieve Auth Token from environment
+
+    if twilio_account_sid is None or twilio_auth_token is None:
+        print("Twilio credentials not found in the .env file.")
+        return
+
+    try:
+        client = Client(twilio_account_sid, twilio_auth_token)
+        message = client.messages.create(
+            to=phone_number,
+            from_='+15418358453',  # Replace with your Twilio phone number
+            body=f'Your OTP is: {otp}'
+        )
+        print('OTP sent successfully via Twilio!')
+    except Exception as e:
+        print(f'Error sending OTP via Twilio: {str(e)}')
+
+# Validate an email address
+def validateemail(email):
+    return re.match(email_pattern, email) is not None
+
+# User input for email
+email = input('Enter your email address: ')
+if validateemail(email):
+    otp = generateotp()
+    sendotpovermail(email, otp)
+else:
+    print('Invalid email address!')
+
+# Validate a mobile number
+def validatemobile(mobile):
+    return len(mobile) == 10 and mobile.isdigit()
+
+# User input for mobile number (Twilio)
+use_twilio = input('Do you want to send OTP via Twilio? (yes/no): ')
+if use_twilio.lower() == 'yes':
+    mobile = input('Enter your mobile number: ')
+    if validatemobile(mobile):
+        sendotpovermobile('+91' + mobile, otp)
+    else:
+        print('Invalid mobile number!')
 
 
-def Validate_Email(Email):
-    if "@gmail.com" not in Email:
-        print("Please Enter Valid Email address!!")
-        Email = input("Enter the Email:")
-        Validate_Email(Email)
-    return Email
 
 
-def Generate_OTP():
-    digits = "0123456789"
-    length = len(digits)
-    otp = ""
-
-    for i in range(6):
-        otp += digits[math.floor(random.random()*length)]
-
-    return otp
 
 
-def send_email(Checked_email, OTP):
-    server = smtplib.SMTP('smtp.gmail.com', 587)
-    server.starttls()  # transfer layer security
-    server.login('jyjawale2003@gmail.com', 'qtbwgpqawlsxwcxc')
-    message = 'Your 6 digit OTP is '+str(OTP)
-    server.sendmail('jyjawale2003@gmail.com',
-                    Checked_email, message)
-    server.quit()
 
 
-def send_OTP(Checked_MobileNo, OTP):
-    client = Client(account_sid, auth_token)
-    Message = client.messages.create(
-        body="Your 6 digit OTP is "+OTP,
-
-        from_=inputNO,
-        to='+91'+str(Checked_MobileNo),
-    )
-    print(Message.body)
-
-
-MobileNo = input("Enter the Mobile number:")
-Checked_MobileNo = Validate_MobileNo(MobileNo)
-
-Email = input("Enter the Email:")
-Checked_email = Validate_Email(Email)
-
-# will Generate OTP
-OTP = Generate_OTP()
-
-# send OTP to Number
-send_OTP(Checked_MobileNo, OTP)
-
-# send to email
-send_email(Checked_email, OTP)
